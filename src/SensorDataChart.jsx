@@ -6,6 +6,14 @@ const SensorDataChart = () => {
   const [tempChartInstance, setTempChartInstance] = useState(null); // Instância do gráfico de temperatura
   const [humidityChartInstance, setHumidityChartInstance] = useState(null); // Instância do gráfico de umidade
   const [isLoading, setIsLoading] = useState(true); // Estado para controlar o carregamento inicial
+  const [token, setToken] = useState(''); // Estado para armazenar o token JWT
+
+  // Função para obter o token JWT
+  const getToken = () => {
+    // Aqui você pode buscar o token do localStorage, cookies, ou outro lugar onde foi armazenado após o login
+    const storedToken = localStorage.getItem('token'); 
+    setToken(storedToken);
+  };
 
   // Função para enviar os dados do sensor para o backend
   const sendSensorData = async () => {
@@ -14,31 +22,36 @@ const SensorDataChart = () => {
       temperatura: Math.random() * 50, // Gerando temperatura aleatória
       umidade: Math.random() * 100 // Gerando umidade aleatória
     };
-
     try {
-      const response = await fetch('http://localhost:3000/inserir-dados-sensor', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(dadosSensor)
-      });
+        const response = await fetch('http://localhost:3000/dados-sensores', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // Adicione o token JWT aqui se a rota estiver protegida
+            },
+            body: JSON.stringify(dadosSensor)
+        });
 
-      if (!response.ok) {
-        throw new Error('Erro ao enviar dados do sensor: ' + response.statusText);
-      }
-
-      console.log('Dados do sensor enviados com sucesso.');
+        if (!response.ok) {
+          throw new Error('Erro ao enviar dados do sensor: ' + response.statusText);
+        }
+  
     } catch (error) {
-      console.error('Erro ao enviar dados do sensor:', error);
+        console.error('Erro ao enviar dados do sensor:', error);
     }
-  };
+};
+
 
   // Busca inicial de dados do backend
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('http://localhost:3000/dados-sensores');
+        const response = await fetch('http://localhost:3000/dados-sensores', {
+          headers: {
+            'Authorization': `Bearer ${token}`, // Adicionando o token JWT ao cabeçalho
+          },
+        });
+
         if (!response.ok) {
           throw new Error('Erro ao buscar dados: ' + response.statusText);
         }
@@ -50,7 +63,14 @@ const SensorDataChart = () => {
       }
     };
 
-    fetchData();
+    if (token) {
+      fetchData(); // Chama fetchData somente se o token existir
+    }
+  }, [token]);
+
+  // Obtenção do token após montar o componente
+  useEffect(() => {
+    getToken();
   }, []);
 
   // Atualização periódica dos dados a cada 10 segundos
@@ -59,7 +79,12 @@ const SensorDataChart = () => {
       try {
         await sendSensorData(); // Enviar os dados do sensor a cada 10 segundos
 
-        const response = await fetch('http://localhost:3000/dados-sensores');
+        const response = await fetch('http://localhost:3000/dados-sensores', {
+          headers: {
+            'Authorization': `Bearer ${token}`, // Adicionando o token JWT ao cabeçalho
+          },
+        });
+
         if (!response.ok) {
           throw new Error('Erro ao buscar dados: ' + response.statusText);
         }
@@ -70,10 +95,11 @@ const SensorDataChart = () => {
       }
     };
 
-    const interval = setInterval(updateChartData, 10000); // Intervalo de 10 segundos
-
-    return () => clearInterval(interval); // Limpar intervalo ao desmontar o componente
-  }, []);
+    if (token) {
+      const interval = setInterval(updateChartData, 10000); // Intervalo de 10 segundos
+      return () => clearInterval(interval); // Limpar intervalo ao desmontar o componente
+    }
+  }, [token]);
 
   // Renderização dos gráficos
   useEffect(() => {
